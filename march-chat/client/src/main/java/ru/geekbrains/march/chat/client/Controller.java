@@ -50,8 +50,13 @@ public class Controller implements Initializable {
 
     public void sendMsg() {
         try {
-            out.writeUTF(msgField.getText());
+            String msg = msgField.getText();
+            out.writeUTF(msg);
             msgField.clear();
+            if ("/exit".equals(msg)) {
+                socket.close();
+                System.exit(0);
+            }
         } catch (IOException e) {
             Alert alert = new Alert(Alert.AlertType.ERROR, "Невозможно отправить сообщение", ButtonType.OK);
             alert.showAndWait();

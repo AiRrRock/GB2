@@ -14,6 +14,10 @@ public class ServerApp {
     // 3. Если клиент отправит команду '/stat', то сервер должен выслать клиенту
     // не эхо, а сообщение вида 'Количество сообщений - n'
 
+    private static final String STAT_REQUEST = "stat";
+    private static final String EXIT_REQUEST = "exit";
+
+
     public static void main(String[] args) {
         try (ServerSocket serverSocket = new ServerSocket(8189)) {
             System.out.println("Сервер запущен на порту 8189. Ожидаем подключение клиента...");
@@ -21,11 +25,24 @@ public class ServerApp {
             DataInputStream in = new DataInputStream(socket.getInputStream());
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             System.out.println("Клиент подключился");
+            long msgCounter = 0;
 
             while (true) {
                 String msg = in.readUTF();
-                System.out.println(msg);
-                out.writeUTF("ECHO: " + msg);
+                if (msg.startsWith("/") && msg.length() >= 2) {
+                    switch (msg.substring(1).toLowerCase()) {
+                        case STAT_REQUEST:
+                            out.writeUTF("Number of messages sent - " + msgCounter);
+                            break;
+                        case EXIT_REQUEST:
+                            serverSocket.close();
+                            System.exit(0);
+                    }
+                } else {
+                    msgCounter++;
+                    out.writeUTF("ECHO: " + msg);
+                    System.out.println(msg);
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
