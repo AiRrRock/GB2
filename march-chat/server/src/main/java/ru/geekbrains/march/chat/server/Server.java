@@ -3,6 +3,7 @@ package ru.geekbrains.march.chat.server;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,6 +44,16 @@ public class Server {
     public boolean isNickBusy(String username) {
         for (ClientHandler clientHandler : clients) {
             if (clientHandler.getUsername().equals(username)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean sendPrivateMessage(String from, String to, String msg) throws IOException {
+        for (ClientHandler clientHandler : clients) {
+            if (to.equals(clientHandler.getUsername())) {
+                clientHandler.sendMessage(String.format("Private message from %s: %s", from, msg));
                 return true;
             }
         }
