@@ -32,14 +32,13 @@ public class ClientHandler {
         this.out = new DataOutputStream(socket.getOutputStream());
         new Thread(() -> {
             try {
-                // Цикл авторизации
-                while (true) {
+                while (true) { // Цикл авторизации
                     String msg = in.readUTF();
                     if (msg.startsWith("/login ")) {
                         // login Bob
                         String usernameFromLogin = msg.split("\\s")[1];
 
-                        if (server.isNickBusy(usernameFromLogin)) {
+                        if (server.isUserOnline(usernameFromLogin)) {
                             sendMessage("/login_failed Current nickname is already used");
                             continue;
                         }
@@ -50,8 +49,8 @@ public class ClientHandler {
                         break;
                     }
                 }
-                // Цикл общения с клиентом
-                while (true) {
+
+                while (true) { // Цикл общения с клиентом
                     String msg = in.readUTF();
                     if (msg.startsWith("/")) {
                         processCommands(msg.substring(1));
@@ -71,8 +70,12 @@ public class ClientHandler {
         }).start();
     }
 
-    public void sendMessage(String message) throws IOException {
-        out.writeUTF(message);
+    public void sendMessage(String message) {
+        try {
+            out.writeUTF(message);
+        } catch (IOException e) {
+            disconnect();
+        }
     }
 
     public void disconnect() {
@@ -105,11 +108,7 @@ public class ClientHandler {
                     }
                 }
                 msgCounter++;
-                if (server.sendPrivateMessage(username, strings[1], msg.toString())) {
-                    this.sendMessage(String.format("Private message to %s: %s", to, msg));
-                } else {
-                    this.sendMessage(String.format("Unable to send message to %s", to));
-                }
+                server.sendPrivateMessage(this, strings[1], msg.toString());
                 break;
             case IDENTITY_REQUEST:
                 this.sendMessage(username);
@@ -117,7 +116,7 @@ public class ClientHandler {
             case CHANGE_NAME_REQUEST:
                 if (strings.length > 1) {
                     String newName = strings[1];
-                    if (server.isNickBusy(newName)) {
+                    if (server.isUserOnline(newName)) {
                         this.sendMessage(String.format("Unable to change name to %s, nickname is already in use", newName));
                     } else {
                         username = newName;
