@@ -1,0 +1,132 @@
+package ru.geekbrains.march.chat.server;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.Socket;
+import java.net.SocketException;
+
+public class ClientHandler {
+    private static final String STAT_REQUEST = "stat";
+    private static final String EXIT_REQUEST = "exit";
+    private static final String IDENTITY_REQUEST = "who_am_i";
+    private static final String PERSONAL_MSG_REQUEST = "w";
+    private static final String CHANGE_NAME_REQUEST = "rename";
+
+
+    private Server server;
+    private Socket socket;
+    private DataInputStream in;
+    private DataOutputStream out;
+    private String username;
+    private int msgCounter = 0;
+
+    public String getUsername() {
+        return username;
+    }
+
+    public ClientHandler(Server server, Socket socket) throws IOException {
+        this.server = server;
+        this.socket = socket;
+        this.in = new DataInputStream(socket.getInputStream());
+        this.out = new DataOutputStream(socket.getOutputStream());
+        new Thread(() -> {
+            try {
+                // Цикл авторизации
+                while (true) {
+                    String msg = in.readUTF();
+                    if (msg.startsWith("/login ")) {
+                        // login Bob
+                        String usernameFromLogin = msg.split("\\s")[1];
+
+                        if (server.isNickBusy(usernameFromLogin)) {
+                            sendMessage("/login_failed Current nickname is already used");
+                            continue;
+                        }
+
+                        username = usernameFromLogin;
+                        sendMessage("/login_ok " + username);
+                        server.subscribe(this);
+                        break;
+                    }
+                }
+                // Цикл общения с клиентом
+                while (true) {
+                    String msg = in.readUTF();
+                    if (msg.startsWith("/")) {
+                        processCommands(msg.substring(1));
+                    } else {
+                        msgCounter++;
+                        server.broadcastMessage(username + ": " + msg);
+                    }
+
+                }
+            } catch (SocketException sc) {
+                System.out.println(username + " disconnected");
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                disconnect();
+            }
+        }).start();
+    }
+
+    public void sendMessage(String message) throws IOException {
+        out.writeUTF(message);
+    }
+
+    public void disconnect() {
+        server.unsubscribe(this);
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void processCommands(String command) throws IOException {
+        String[] strings = command.split("\\s");
+        switch (command.toLowerCase().split("\\s")[0]) {
+            case STAT_REQUEST:
+                out.writeUTF("Number of messages sent - " + msgCounter);
+                break;
+            case EXIT_REQUEST:
+                disconnect();
+                break;
+            case PERSONAL_MSG_REQUEST:
+                String to = strings[1];
+                StringBuilder msg = new StringBuilder();
+                if (strings.length > 2) {
+                    for (int i = 2; i < strings.length; i++) {
+                        msg.append(strings[i]);
+                        msg.append(" ");
+                    }
+                }
+                msgCounter++;
+                if (server.sendPrivateMessage(username, strings[1], msg.toString())) {
+                    this.sendMessage(String.format("Private message to %s: %s", to, msg));
+                } else {
+                    this.sendMessage(String.format("Unable to send message to %s", to));
+                }
+                break;
+            case IDENTITY_REQUEST:
+                this.sendMessage(username);
+                break;
+            case CHANGE_NAME_REQUEST:
+                if (strings.length > 1) {
+                    String newName = strings[1];
+                    if (server.isNickBusy(newName)) {
+                        this.sendMessage(String.format("Unable to change name to %s, nickname is already in use", newName));
+                    } else {
+                        username = newName;
+                        this.sendMessage(String.format("Changed name to %s", newName));
+
+                    }
+
+                }
+        }
+    }
+}
+
