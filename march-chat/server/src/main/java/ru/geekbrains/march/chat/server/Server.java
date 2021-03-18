@@ -4,42 +4,47 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class Server {
     private int port;
     private List<ClientHandler> clients;
+    private Map<String, User> users;
 
     public Server(int port) {
         this.port = port;
         this.clients = new ArrayList<>();
+        this.users = new HashMap<>();
+        for (int i = 0; i < 10; i++) {
+            users.put("u" + i, new User("u" + i, i + "pass", "Nickname" + i));
+        }
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             System.out.println("Сервер запущен на порту " + port);
             while (true) {
                 System.out.println("Ждем нового клиента..");
                 Socket socket = serverSocket.accept();
-                System.out.println("Клиент подключился");
+                System.out.println("Client connected");
                 new ClientHandler(this, socket);
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
+
     }
 
     public synchronized void subscribe(ClientHandler clientHandler) {
         clients.add(clientHandler);
-        broadcastMessage("Клиент " + clientHandler.getUsername() + " вошел в чат");
+        broadcastMessage("Client " + clientHandler.getUsername() + " logged in");
         broadcastClientsList();
     }
 
     public synchronized void unsubscribe(ClientHandler clientHandler) {
         clients.remove(clientHandler);
-        broadcastMessage("Клиент " + clientHandler.getUsername() + " вышел из чата");
+        broadcastMessage("Client " + clientHandler.getUsername() + " left");
         broadcastClientsList();
     }
 
-    public synchronized void broadcastMessage(String message)  {
+    public synchronized void broadcastMessage(String message) {
         for (ClientHandler clientHandler : clients) {
             clientHandler.sendMessage(message);
         }
@@ -48,17 +53,21 @@ public class Server {
     public synchronized void sendPrivateMessage(ClientHandler sender, String receiverUsername, String message) {
         for (ClientHandler c : clients) {
             if (c.getUsername().equals(receiverUsername)) {
-                c.sendMessage("От: " + sender.getUsername() + " Сообщение: " + message);
-                sender.sendMessage("Пользователю: " + receiverUsername + " Сообщение: " + message);
+                c.sendMessage("From " + sender.getUsername() + ": " + message);
+                sender.sendMessage("To " + receiverUsername + ": " + message);
                 return;
             }
         }
-        sender.sendMessage("Невозможно отправить сообщение пользователю: " + receiverUsername + ". Такого пользователя нет в сети.");
+        sender.sendMessage("Unable to send message to:" + receiverUsername + "User is offline");
     }
 
     public synchronized boolean isUserOnline(String username) {
+        String name = username;
+        if(users.containsKey(username)){
+            name = users.get(username).getNickName();
+        }
         for (ClientHandler clientHandler : clients) {
-            if (clientHandler.getUsername().equals(username)) {
+            if (clientHandler.getUsername().equals(name)) {
                 return true;
             }
         }
@@ -75,5 +84,16 @@ public class Server {
         for (ClientHandler clientHandler : clients) {
             clientHandler.sendMessage(clientsList);
         }
+    }
+
+    public boolean authenticate(String login, String password) {
+        if(users.containsKey(login)){
+            return users.get(login).getPassword().equals(password);
+        }
+        return false;
+    }
+
+    public User getUser(String name) {
+        return users.get(name);
     }
 }

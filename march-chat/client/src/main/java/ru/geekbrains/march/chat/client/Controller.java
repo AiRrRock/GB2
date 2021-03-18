@@ -10,17 +10,19 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.URL;
+import java.util.Base64;
 import java.util.ResourceBundle;
 
 public class Controller implements Initializable {
     @FXML
-    TextField msgField, usernameField;
+    TextField msgField, usernameField, passwordField;
 
     @FXML
     TextArea msgArea;
@@ -31,6 +33,11 @@ public class Controller implements Initializable {
     @FXML
     ListView<String> clientsList;
 
+    @FXML
+    Button logoutButton;
+
+    @FXML
+    VBox userList;
     private Socket socket;
     private DataInputStream in;
     private DataOutputStream out;
@@ -45,6 +52,8 @@ public class Controller implements Initializable {
             msgPanel.setManaged(true);
             clientsList.setVisible(true);
             clientsList.setManaged(true);
+            logoutButton.setVisible(true);
+            userList.setVisible(true);
         } else {
             loginPanel.setVisible(true);
             loginPanel.setManaged(true);
@@ -58,6 +67,7 @@ public class Controller implements Initializable {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         setUsername(null);
+        logoutButton.setVisible(false);
     }
 
     public void login() {
@@ -66,13 +76,13 @@ public class Controller implements Initializable {
         }
 
         if (usernameField.getText().isEmpty()) {
-            Alert alert = new Alert(Alert.AlertType.ERROR, "Имя пользователя не может быть пустым", ButtonType.OK);
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Username cannot be empty", ButtonType.OK);
             alert.showAndWait();
             return;
         }
 
         try {
-            out.writeUTF("/login " + usernameField.getText());
+            out.writeUTF("/login " + usernameField.getText() + " " + passwordField.getText());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -148,7 +158,14 @@ public class Controller implements Initializable {
                 socket.close();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            // DO nothing
         }
+    }
+
+    public void logout(ActionEvent actionEvent) throws IOException {
+        out.writeUTF(msgField.getText());
+        disconnect();
+        logoutButton.setVisible(false);
+        userList.setVisible(false);
     }
 }
