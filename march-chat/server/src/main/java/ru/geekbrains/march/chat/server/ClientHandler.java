@@ -11,7 +11,8 @@ public class ClientHandler {
     private static final String EXIT_REQUEST = "exit";
     private static final String IDENTITY_REQUEST = "who_am_i";
     private static final String PERSONAL_MSG_REQUEST = "w";
-    private static final String CHANGE_NAME_REQUEST = "rename";
+    //Already done, but the command differs, thus just renamed command
+    private static final String CHANGE_NAME_REQUEST = "change_nick";
 
 
     private Server server;
@@ -35,18 +36,26 @@ public class ClientHandler {
                 while (true) { // Цикл авторизации
                     String msg = in.readUTF();
                     if (msg.startsWith("/login ")) {
-                        // login Bob
-                        String usernameFromLogin = msg.split("\\s")[1];
+                        String[] cred = msg.split("\\s", 3);
+                        if(cred.length < 3){
+                            sendMessage("/login_failed Enter login and password");
+                            continue;
+                        }
+                        String usernameFromLogin = cred[1];
+                        String password = cred[2];
 
                         if (server.isUserOnline(usernameFromLogin)) {
                             sendMessage("/login_failed Current nickname is already used");
                             continue;
                         }
+                        if (server.authenticate(usernameFromLogin,password)){
+                            User u = server.getUser(usernameFromLogin);
+                            username = u.getNickName();
+                            sendMessage("/login_ok " + username);
+                            server.subscribe(this);
+                            break;
+                        }
 
-                        username = usernameFromLogin;
-                        sendMessage("/login_ok " + username);
-                        server.subscribe(this);
-                        break;
                     }
                 }
 
@@ -113,6 +122,19 @@ public class ClientHandler {
             case IDENTITY_REQUEST:
                 this.sendMessage(username);
                 break;
+            // Homework part 3 was already done
+            /*case CHANGE_NAME_REQUEST:
+                if (strings.length > 1) {
+                    String newName = strings[1];
+                    if (server.isUserOnline(newName)) {
+                        this.sendMessage(String.format("Unable to change name to %s, nickname is already in use", newName));
+                    } else {
+                        username = newName;
+                        this.sendMessage(String.format("Changed name to %s", newName));
+
+                    }
+
+                }*/
             case CHANGE_NAME_REQUEST:
                 if (strings.length > 1) {
                     String newName = strings[1];
